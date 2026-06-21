@@ -1,5 +1,6 @@
 import streamlit as st
 import random
+import pandas as pd
 
 st.title("The Monty Hall Problem Simulator")
 st.write("Test your intuition! Can you successfully beat the game?")
@@ -20,11 +21,10 @@ if "initialized" not in st.session_state:
     st.session_state.winning_door = None
     st.session_state.chosen_door = None
     st.session_state.revealed_door = None
-    st.session_state.last_outcome = None  # Tracks if last trial was "win" or "loss"
+    st.session_state.last_outcome = None
     st.session_state.feedback_message = ""
 
-# Set total trials (Allows user to input 50, 20, 100, etc.)
-# If they change this mid-game, the app updates dynamically
+# Set total trials
 max_trials = st.number_input("Set number of trials to complete:", min_value=1, max_value=1000, value=50, step=1)
 
 # 2. Reset layout for a brand new trial
@@ -56,7 +56,6 @@ if st.session_state.trials_played < max_trials:
                 st.session_state.chosen_door = 3
                 
         if st.session_state.chosen_door is not None:
-            # Monty reveals a remaining door that has a goat
             remaining_doors = [d for d in [1, 2, 3] if d != st.session_state.chosen_door and d != st.session_state.winning_door]
             st.session_state.revealed_door = random.choice(remaining_doors)
             st.session_state.game_phase = "make_decision"
@@ -113,7 +112,6 @@ if st.session_state.trials_played < max_trials:
                 start_new_trial()
                 st.rerun()
 
-    # Show red box for a loss, green box for a win
     if st.session_state.feedback_message:
         if st.session_state.last_outcome == "win":
             st.success(st.session_state.feedback_message)
@@ -132,33 +130,32 @@ else:
     st.balloons()
     st.header(f"🏁 {max_trials} Trials Completed!")
     st.subheader("The Truth Revealed: Stick vs. Switch")
-    st.write("Now that you have finished your data gathering, let's look at how your choices affected your outcomes.")
+    st.write("Let's look at the final breakdown of your choices and outcomes.")
     
     total_played = st.session_state.trials_played
+    stick_losses = st.session_state.stick_played - st.session_state.stick_wins
+    switch_losses = st.session_state.switch_played - st.session_state.switch_wins
+    
     final_win_pct = (st.session_state.total_wins / total_played * 100) if total_played > 0 else 0.0
     stick_pct = (st.session_state.stick_wins / st.session_state.stick_played * 100) if st.session_state.stick_played > 0 else 0.0
     switch_pct = (st.session_state.switch_wins / st.session_state.switch_played * 100) if st.session_state.switch_played > 0 else 0.0
     
-    # 1. Total Summary
-    st.markdown("---")
-    st.markdown(f"### 📈 Overall Performance")
-    st.write(f"You played a total of **{total_played}** games and won **{st.session_state.total_wins}** times for a total win rate of **{final_win_pct:.1f}%**.")
+    # Create the exact data matrix requested
+    summary_matrix = {
+        "Games Played": [st.session_state.stick_played, st.session_state.switch_played, total_played],
+        "Games Won": [st.session_state.stick_wins, st.session_state.switch_wins, st.session_state.total_wins],
+        "Games Lost": [stick_losses, switch_losses, st.session_state.total_losses],
+        "% Win": [f"{stick_pct:.1f}%", f"{switch_pct:.1f}%", f"{final_win_pct:.1f}%"]
+    }
     
-    # 2. Split Summary
-    col_res1, col_res2 = st.columns(2)
-    with col_res1:
-        st.markdown("### 🛑 Strategy: STICK")
-        st.metric(label="Times You Stuck", value=f"{st.session_state.stick_played}")
-        st.metric(label="Wins from Sticking", value=f"{st.session_state.stick_wins}")
-        st.subheader(f"Win Rate: {stick_pct:.1f}%")
-        
-    with col_res2:
-        st.markdown("### 🔄 Strategy: SWITCH")
-        st.metric(label="Times You Switched", value=f"{st.session_state.switch_played}")
-        st.metric(label="Wins from Switching", value=f"{st.session_state.switch_wins}")
-        st.subheader(f"Win Rate: {switch_pct:.1f}%")
-        
+    # Convert to DataFrame with custom rows
+    df_summary = pd.DataFrame(summary_matrix, index=["Stay", "Switch", "Total"])
+    
+    # Display table beautifully
     st.markdown("---")
+    st.dataframe(df_summary, use_container_width=True)
+    st.markdown("---")
+    
     if st.button("Reset Game and Play Again"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
