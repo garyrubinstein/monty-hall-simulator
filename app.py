@@ -1,9 +1,8 @@
 import streamlit as st
 import random
-import pandas as pd
 
 st.title("The Monty Hall Problem Simulator")
-st.write("Test your intuition! Can you successfully beat the game over 50 trials?")
+st.write("Test your intuition! Can you successfully beat the game?")
 
 # 1. Initialize State Variables (The App's Memory)
 if "initialized" not in st.session_state:
@@ -21,7 +20,12 @@ if "initialized" not in st.session_state:
     st.session_state.winning_door = None
     st.session_state.chosen_door = None
     st.session_state.revealed_door = None
+    st.session_state.last_outcome = None  # Tracks if last trial was "win" or "loss"
     st.session_state.feedback_message = ""
+
+# Set total trials (Allows user to input 50, 20, 100, etc.)
+# If they change this mid-game, the app updates dynamically
+max_trials = st.number_input("Set number of trials to complete:", min_value=1, max_value=1000, value=50, step=1)
 
 # 2. Reset layout for a brand new trial
 def start_new_trial():
@@ -34,8 +38,8 @@ if st.session_state.winning_door is None:
     start_new_trial()
 
 # --- THE GAME ZONE ---
-if st.session_state.trials_played < 50:
-    st.subheader(f"Current Status: Trial {st.session_state.trials_played + 1} of 50")
+if st.session_state.trials_played < max_trials:
+    st.subheader(f"Current Status: Trial {st.session_state.trials_played + 1} of {max_trials}")
     
     # Phase A: User picks initial door
     if st.session_state.game_phase == "pick_door":
@@ -79,9 +83,11 @@ if st.session_state.trials_played < 50:
                 if final_door == st.session_state.winning_door:
                     st.session_state.stick_wins += 1
                     st.session_state.total_wins += 1
+                    st.session_state.last_outcome = "win"
                     st.session_state.feedback_message = "🎉 Success! You won a Car!"
                 else:
                     st.session_state.total_losses += 1
+                    st.session_state.last_outcome = "loss"
                     st.session_state.feedback_message = "❌ Lost! You got a Goat."
                 
                 st.session_state.trials_played += 1
@@ -96,38 +102,35 @@ if st.session_state.trials_played < 50:
                 if final_door == st.session_state.winning_door:
                     st.session_state.switch_wins += 1
                     st.session_state.total_wins += 1
+                    st.session_state.last_outcome = "win"
                     st.session_state.feedback_message = "🎉 Success! You won a Car!"
                 else:
                     st.session_state.total_losses += 1
+                    st.session_state.last_outcome = "loss"
                     st.session_state.feedback_message = "❌ Lost! You got a Goat."
                 
                 st.session_state.trials_played += 1
                 start_new_trial()
                 st.rerun()
 
+    # Show red box for a loss, green box for a win
     if st.session_state.feedback_message:
-        st.success(st.session_state.feedback_message)
+        if st.session_state.last_outcome == "win":
+            st.success(st.session_state.feedback_message)
+        else:
+            st.error(st.session_state.feedback_message)
 
-    # --- MID-GAME PUBLIC SCOREBOARD ---
+    # --- MID-GAME PUBLIC SCOREBOARD (TEXT ONLY) ---
     st.markdown("---")
     st.subheader("📊 Your Live Progress")
     
-    # Simple Chart: Wins vs Losses
-    chart_data = pd.DataFrame(
-        [st.session_state.total_wins, st.session_state.total_losses],
-        index=["Wins", "Losses"],
-        columns=["Count"]
-    )
-    st.bar_chart(chart_data)
-    
-    # Text summary
     win_pct = (st.session_state.total_wins / st.session_state.trials_played * 100) if st.session_state.trials_played > 0 else 0.0
     st.write(f"Games Played: **{st.session_state.trials_played}** | Total Wins: **{st.session_state.total_wins}** | Total Losses: **{st.session_state.total_losses}** | Win Percentage: **{win_pct:.1f}%**")
 
 else:
     # --- END GAME: REVEAL THE GRAND FINALE SUMMARY ---
     st.balloons()
-    st.header("🏁 50 Trials Completed!")
+    st.header(f"🏁 {max_trials} Trials Completed!")
     st.subheader("The Truth Revealed: Stick vs. Switch")
     st.write("Now that you have finished your data gathering, let's look at how your choices affected your outcomes.")
     
@@ -141,7 +144,7 @@ else:
     st.markdown(f"### 📈 Overall Performance")
     st.write(f"You played a total of **{total_played}** games and won **{st.session_state.total_wins}** times for a total win rate of **{final_win_pct:.1f}%**.")
     
-    # 2. Split Summary (Hidden until right now!)
+    # 2. Split Summary
     col_res1, col_res2 = st.columns(2)
     with col_res1:
         st.markdown("### 🛑 Strategy: STICK")
